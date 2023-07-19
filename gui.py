@@ -1,18 +1,16 @@
-from io import BytesIO
 import threading
 import dearpygui.dearpygui as dpg
-import urllib.request
-import os, json, codecs, requests, time
+import os, json, requests, time
 
 DISCORD_TOKEN = ""
 SESSION = ""
 COOKIES = ""
+
 USER_INFO = {}
-STATUS = ""
 PATH = "?"
 RELATIONSHIPS = []
-SETTINGS = ""
-LOGGER = []
+
+# -=-=-=-=-=-=- function for work with API Discord -=-=-=-=-=-=- 
 
 def getProfile(user_id):
     url = f"https://discord.com/api/v9/users/{user_id}/profile"
@@ -153,7 +151,7 @@ def writeInFile(PATH, FILE_NAME, DATA):
 
     with open(f'{PATH}/{FILE_NAME}', 'w', encoding='utf-8') as file:
         json.dump(DATA, file, ensure_ascii=False, indent=4)
-    
+
 def writeInfo(fileName, user_id):
 
     try:
@@ -193,16 +191,13 @@ def getDataInput(sender, app_data):
     DISCORD_TOKEN = app_data
     # print(DISCORD_TOKEN)
 
-
+# -=-=-=-=-=-=- function for UI -=-=-=-=-=-=- 
 
 def login_fn():
     global SESSION
     global COOKIES
     global USER_INFO
-    global STATUS
-
     
-
     SESSION = requests.get(
         "https://discord.com/api/v9/users/@me", 
         headers={
@@ -216,11 +211,10 @@ def login_fn():
     USER_INFO = json.loads(SESSION.text)
 
     if "message" in USER_INFO :
-        STATUS = {USER_INFO["message"]}
-        dpg.set_value("status", f"{STATUS}")
+        status = {USER_INFO["message"]}
+        dpg.set_value("status", f"status: {status}")
         
     else:
-        STATUS = {'message': 'authorized'}
         user_nickname = USER_INFO["username"]
         dpg.set_value("status", f"is login")
         dpg.set_value("user_nickname", f"{user_nickname}")
@@ -246,13 +240,6 @@ def exit_fn():
     dpg.set_value("status", "status: no authorization")
     dpg.set_value("user_nickname", "your nickname")
     dpg.delete_item("friends")
-    
-def get_senderLB(sender):
-    value = f"{dpg.get_value(sender)}"
-    value = value.split("'id': ")[1].split("'")[1]
-
-    infoAboutAny(getProfile(value))
-    # print(getProfile(f"{value}"))
 
 def add_flendList():
     global RELATIONSHIPS
@@ -265,21 +252,120 @@ def add_flendList():
         
         freandList.append({"username": item["user"]["username"], "type": item["type"], "id": item["id"]})
 
-    # print(RELATIONSHIPS)
+    dpg.add_listbox(freandList, width=600, tag="friends", parent="window_login", num_items=10, callback=display_Info_about, before="nothing")
 
-    dpg.show_item("nothing0")
-    # dpg.add_text("", tag="Freands_text", parent="window_login", before="nothing")
-    dpg.add_listbox(freandList, width=600, tag="friends", parent="window_login", num_items=10, callback=get_senderLB, before="nothing")
-
-def main_fn():
-    global PATH
-
+def state_load():
     dpg.show_item("window_loading")
     dpg.show_item("console")
     dpg.set_primary_window("window_login", False)
 
     dpg.hide_item("window_login")
     dpg.set_primary_window("window_loading", True)
+
+def state_start():
+    global PATH
+    
+    dpg.show_item("window_login")
+    dpg.set_primary_window("window_login", False)
+
+    dpg.delete_item("save_btn")
+    dpg.set_value("path", 'path: ?')
+    PATH = "?"
+    dpg.hide_item("console")
+    dpg.hide_item("window_loading")
+    dpg.set_primary_window("window_login", True)
+
+# -=-=-=- fn for display info -=-=-=-
+
+def display_Info_about(sender):
+    value = f"{dpg.get_value(sender)}"
+    value = value.split("'id': ")[1].split("'")[1]
+
+    infoAboutAny(getProfile(value))
+
+def infoAboutAny(data):
+    try:
+        user = data["user"]
+
+        note = getNotes(user["id"])
+
+        with dpg.window(
+            label="window", 
+            no_move=False, no_close=False, no_title_bar=False
+        ):
+            with dpg.group(horizontal=True):
+                dpg.add_text("id: ")
+                dpg.add_text(f'{user["id"]}')
+
+            with dpg.group(horizontal=True):
+                dpg.add_text("username: ")
+                dpg.add_text(f'{user["username"]}')
+
+            with dpg.group(horizontal=True):
+                dpg.add_text("global_name: ")
+                dpg.add_text(f'{user["global_name"]}')
+
+            with dpg.group(horizontal=True):
+                dpg.add_text("bio: ")
+                dpg.add_text(f'{user["bio"]}')
+                
+            dpg.add_text(note)
+    except:
+        with dpg.window(
+            label="window", 
+            no_move=False, no_close=False, no_title_bar=False
+        ):
+                
+            dpg.add_text(data)
+
+def infoAboutMe():
+    with dpg.window(
+        label="window", 
+        no_move=False, no_close=False, no_title_bar=False
+    ):
+        with dpg.group(horizontal=True):
+            dpg.add_text("id")
+            dpg.add_text(USER_INFO["id"])
+        with dpg.group(horizontal=True):
+            dpg.add_text("username")
+            dpg.add_text(USER_INFO["username"])
+        with dpg.group(horizontal=True):
+            dpg.add_text("global_name")
+            dpg.add_text(USER_INFO["global_name"])
+        with dpg.group(horizontal=True):
+            dpg.add_text("email")
+            dpg.add_text(USER_INFO["email"])
+        with dpg.group(horizontal=True):
+            dpg.add_text("phone")
+            dpg.add_text(USER_INFO["phone"])
+
+# -=-=-=- tools -=-=-=-
+
+def get_chuse(sendler):
+    if sendler == "select_1":
+        dpg.set_value("select_2", False)
+
+    if sendler == "select_2":
+        dpg.set_value("select_1", False)
+
+def path_callback(sender, app_data):
+    global PATH
+
+    PATH = app_data["current_path"] + f'/{USER_INFO["username"]}'
+    dpg.set_value('path', PATH)
+
+    create_btn_start()
+
+def create_btn_start():
+    xthreadingFn = threading.Thread(target=main_fn)
+    dpg.add_button(label="start", tag="save_btn", parent="window_login", callback=lambda: xthreadingFn.start())
+
+# -=-=-=- important fn -=-=-=-
+
+def main_fn():
+    global PATH
+
+    state_load()
 
     fromAll = dpg.get_value("select_1")
     fromFiends = dpg.get_value("select_2")
@@ -307,141 +393,45 @@ def main_fn():
             except:
                 writeInfo(user['id'], user['id'])
 
-    dpg.show_item("window_login")
-    dpg.set_primary_window("window_login", False)
+    state_start()
 
-    dpg.delete_item("save_btn")
-    dpg.set_value("path", 'path: ?')
-    PATH = "?"
-    dpg.hide_item("console")
-    dpg.hide_item("window_loading")
-    dpg.set_primary_window("window_login", True)
-
-def infoAboutAny(data):
-    user = data["user"]
-
-    note = getNotes(user["id"])
-
-    with dpg.window(
-        label="window", 
-        no_move=False, no_close=False, no_title_bar=False
-    ):
-        with dpg.group(horizontal=True):
-            dpg.add_text("id: ")
-            dpg.add_text(f'{user["id"]}')
-
-        with dpg.group(horizontal=True):
-            dpg.add_text("username: ")
-            dpg.add_text(f'{user["username"]}')
-
-        with dpg.group(horizontal=True):
-            dpg.add_text("global_name: ")
-            dpg.add_text(f'{user["global_name"]}')
-
-        with dpg.group(horizontal=True):
-            dpg.add_text("bio: ")
-            dpg.add_text(f'{user["bio"]}')
-            
-        dpg.add_text(note)
-
-def infoAboutMe():
-    with dpg.window(
-        label="window", 
-        no_move=False, no_close=False, no_title_bar=False
-    ):
-        with dpg.group(horizontal=True):
-            dpg.add_text("id")
-            dpg.add_text(USER_INFO["id"])
-        with dpg.group(horizontal=True):
-            dpg.add_text("username")
-            dpg.add_text(USER_INFO["username"])
-        with dpg.group(horizontal=True):
-            dpg.add_text("global_name")
-            dpg.add_text(USER_INFO["global_name"])
-        with dpg.group(horizontal=True):
-            dpg.add_text("email")
-            dpg.add_text(USER_INFO["email"])
-        with dpg.group(horizontal=True):
-            dpg.add_text("phone")
-            dpg.add_text(USER_INFO["phone"])
-
-def get_chuse(sendler):
-    if sendler == "select_1":
-        dpg.set_value("select_2", False)
-
-    if sendler == "select_2":
-        dpg.set_value("select_1", False)
-
-def path_callback(sender, app_data):
-    global PATH
-
-    PATH = app_data["current_path"] + f'/{USER_INFO["username"]}'
-    dpg.set_value('path', PATH)
-
-    xthreadingFn = threading.Thread(target=main_fn)
-
-    dpg.add_button(label="start", tag="save_btn", parent="window_login", callback=lambda: xthreadingFn.start())
-
-    # print('OK was clicked.')
-    # print("Sender: ", sender)
-    # print("App Data: ", app_data)
-
-def path_cancel_callback(sender, app_data):
-    pass
-    # print('Cancel was clicked.')
-    # print("Sender: ", sender)
-    # print("App Data: ", app_data)
-
-def fn_chuse():
-    print("select_1", dpg.get_value("select_1"), "select_2", dpg.get_value("select_2"), type(dpg.get_value("select_1")))
+# -=-=-=- windows -=-=-=-
 
 dpg.create_context()
 
-with dpg.window(
-        label="window_login", 
-        tag="window_login", pos=(0,0), width=700, height=150, 
-        no_move=True, no_close=True, no_title_bar=True
-    ):
-
+# -=-=-=- main menu -=-=-=-
+with dpg.window( label="window_login",  tag="window_login", pos=(0,0), width=700, height=150, no_move=True, no_close=True, no_title_bar=True):
     dpg.add_text("your nickname", tag="user_nickname")
     dpg.add_text("status: no authorization", tag="status")
+
     dpg.add_button(label="show info", tag="myInfo", show=False, callback=infoAboutMe)
+
     dpg.add_input_text(tag="token_input", callback=getDataInput)
+
     dpg.add_button(label="login", tag="login", callback=login_fn)
     dpg.add_button(label="exit", tag='exit', show=False, callback=exit_fn)
-    dpg.add_text("", tag="nothing0", show=False)
 
     dpg.add_text("", tag="nothing")
-
     dpg.add_text("Get messages from:", show=False, tag="text_msg_1")
 
     with dpg.group(horizontal=True):
-        dpg.add_checkbox(label="All", tag='select_1', show=False, callback=get_chuse)
-        dpg.add_checkbox(label="Friends", tag='select_2', show=False, callback=get_chuse)
+        dpg.add_checkbox(label="All ()", tag='select_1', show=False, callback=get_chuse)
+        dpg.add_checkbox(label="Friends", tag='select_2', default_value=True, show=False, callback=get_chuse)
 
-    dpg.add_file_dialog(directory_selector=True, show=False, tag="file_directory_id", width=500 ,height=400, callback=path_callback, cancel_callback=path_cancel_callback)
+    dpg.add_file_dialog(directory_selector=True, show=False, tag="file_directory_id", width=500 ,height=400, callback=path_callback)
 
     with dpg.group(horizontal=True):
         dpg.add_button(label="Select directory",tag="select_directory" , show=False, callback=lambda: dpg.show_item("file_directory_id"))
         dpg.add_text("path: ?", show=False, tag="path")
 
-
-
-with dpg.window(
-        label="window_loading", 
-        tag="window_loading", pos=(0,0), width=700, height=150, 
-        show=False,
-        no_move=True, no_close=True, no_title_bar=True
-    ):
-
+# -=-=-=- loading display -=-=-=-
+with dpg.window( label="window_loading", tag="window_loading", pos=(0,0), width=700, height=150, show=False, no_move=True, no_close=True, no_title_bar=True ):
     with dpg.group(horizontal=True):
         dpg.add_loading_indicator()
         dpg.add_text("Loading")
 
-    
 with dpg.window(label="console", tag="console", pos=(0,50), width=800, height=500, no_resize=True, show=False, no_close=True, no_move=True, no_title_bar=True):
     pass
-
 
 dpg.create_viewport(title='Custom Title', width=800, height=600)
 dpg.setup_dearpygui()
