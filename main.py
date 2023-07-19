@@ -1,4 +1,4 @@
-import os, json, codecs, requests, time
+import os, json, requests, time
 
 # import http.client # requests -> http.client
 
